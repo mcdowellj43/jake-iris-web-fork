@@ -1,0 +1,36 @@
+profiles:
+  IP-basic:
+    ioc_type: ip
+    description: Quick IP context
+    sources: [abuseipdb, greynoise, talos, rdap, geoip]
+    cache_ttl: 86400
+    timeout_s: 6
+
+  Domain-basic:
+    ioc_type: domain
+    description: Phishing/infrastructure context
+    sources: [otx, talos, whois, crtsh, urlhaus]
+    cache_ttl: 86400
+    timeout_s: 8
+
+  Hash-basic:
+    ioc_type: hash
+    description: Malware reputation
+    sources: [virustotal, hybridanalysis, malwarebazaar]
+    cache_ttl: 86400
+    timeout_s: 8
+
+  # Extended profiles for future use
+  IP-extended:
+    ioc_type: ip
+    description: Comprehensive IP analysis
+    sources: [abuseipdb, greynoise, talos, rdap, geoip, otx, shodan]
+    cache_ttl: 43200
+    timeout_s: 10
+
+  Domain-extended:
+    ioc_type: domain
+    description: Deep domain analysis
+    sources: [otx, talos, whois, crtsh, urlhaus, virustotal, passivetotal]
+    cache_ttl: 43200
+    timeout_s: 12

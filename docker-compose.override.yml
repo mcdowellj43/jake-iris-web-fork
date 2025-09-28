@@ -1,0 +1,17 @@
+# Docker Compose override for IOC enrichment development
+# This mounts our new enrichment code into the running containers
+
+services:
+  app:
+    volumes:
+      # Mount our new enrichment module into the container
+      - ./source/app/iris_engine/enrichment:/iriswebapp/app/iris_engine/enrichment:ro
+      # Mount test files for development
+      - ./test_enrichment_phase1.py:/iriswebapp/test_enrichment_phase1.py:ro
+      - ./test_enrichment_phase2.py:/iriswebapp/test_enrichment_phase2.py:ro
+      - ./test_enrichment_phase3.py:/iriswebapp/test_enrichment_phase3.py:ro
+
+  worker:
+    volumes:
+      # Mount our new enrichment module into the worker container too
+      - ./source/app/iris_engine/enrichment:/iriswebapp/app/iris_engine/enrichment:ro

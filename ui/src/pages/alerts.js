@@ -1186,7 +1186,6 @@ function renderAlert(alert, expanded=false, modulesOptionsAlertReq,
                                                 <i class="fa fa-copy text-dark"></i>
                                             </button>
                                        </td>
-                                       <td>${asset.asset_name ? filterXSS(asset.asset_name) : '-'}</td>
                                        <td>${asset.asset_description ? filterXSS(asset.asset_description) : '-'}</td>
                                        <td>${asset.asset_type ? filterXSS(asset.asset_type.asset_name) : '-'}</td>
                                        <td>${asset.asset_domain ? filterXSS(asset.asset_domain) : '-'}</td>
