@@ -49,8 +49,11 @@ from app.blueprints.graphql.cases import CaseDelete
 from app.blueprints.graphql.cases import CaseUpdate
 from app.blueprints.graphql.cases import CaseConnection
 
+# Import enrichment GraphQL components
+from app.iris_engine.enrichment.graphql_schema import EnrichmentQuery, EnrichmentMutation
 
-class Query(ObjectType):
+
+class Query(ObjectType, EnrichmentQuery):
     """This is the IRIS GraphQL queries documentation!"""
 
     cases = SQLAlchemyConnectionField(CaseConnection, classification_id=Float(), client_id=Float(), state_id=Int(),
@@ -76,7 +79,7 @@ class Query(ObjectType):
         return get_ioc_by_identifier(ioc_id)
 
 
-class Mutation(ObjectType):
+class Mutation(ObjectType, EnrichmentMutation):
 
     ioc_create = IOCCreate.Field()
     ioc_update = IOCUpdate.Field()
