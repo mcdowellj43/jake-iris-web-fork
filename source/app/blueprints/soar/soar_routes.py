@@ -44,6 +44,8 @@ from app.util import response_success, response_error, ac_api_case_requires, ac_
 from app.blueprints.manage.manage_integrations.manage_integrations_routes import get_integrations_config
 from celery import current_app as celery_app
 
+log = logging.getLogger(__name__)
+
 soar_blueprint = Blueprint('soar',
                           __name__,
                           template_folder='templates')
@@ -55,7 +57,7 @@ def soar_index():
     """
     Main SOAR page - job orchestration and management interface
     """
-    print("DEBUG: SOAR route HIT!")
+    log.debug("SOAR route accessed")
     try:
         caseid = request.args.get('cid', default=1, type=int)
 
@@ -1533,7 +1535,7 @@ def soar_job_cancel_schedule(job_id, caseid):
             try:
                 celery_app.control.revoke(job.celery_task_id, terminate=True)
             except Exception as e:
-                print(f"Warning: Failed to revoke Celery task {job.celery_task_id}: {str(e)}")
+                log.warning(f"Failed to revoke Celery task {job.celery_task_id}: {str(e)}")
 
         # Update job status
         job.status = 'Cancelled'
@@ -1588,13 +1590,13 @@ def soar_jobs_create(caseid):
         with open('/tmp/soar_debug.log', 'a') as f:
             f.write(f"[{datetime.now()}] soar_jobs_create called!\n")
 
-        print("DEBUG: soar_jobs_create called!")
+        log.debug("soar_jobs_create called")
         data = request.get_json()
 
         with open('/tmp/soar_debug.log', 'a') as f:
             f.write(f"[{datetime.now()}] Request data: {data}\n")
 
-        print(f"DEBUG: Request data: {data}")
+        log.debug(f"Request data: {data}")
 
         # Validate required fields
         required_fields = ['template_id', 'target']
@@ -1650,8 +1652,8 @@ def execute_soar_job(job_id, template_id, target, case_id, integrations_config):
     Execute a SOAR job based on the template type using integration settings
     """
     try:
-        print(f"DEBUG: execute_soar_job called with template_id={template_id}, target={target}")
-        print(f"DEBUG: integrations_config={integrations_config}")
+        log.debug(f"execute_soar_job called with template_id={template_id}, target={target}")
+        log.debug(f"integrations_config={integrations_config}")
 
         start_time = datetime.now().isoformat() + "Z"
         template_name = get_template_name(template_id)
@@ -1688,13 +1690,13 @@ def execute_soar_job(job_id, template_id, target, case_id, integrations_config):
             f.write(f"[{datetime.now()}] checking enabled status for {integration_type}, config={config}\n")
             f.write(f"[{datetime.now()}] config.get('enabled', False)={config.get('enabled', False)}\n")
 
-        print(f"DEBUG: checking enabled status for {integration_type}, config={config}")
-        print(f"DEBUG: config.get('enabled', False)={config.get('enabled', False)}")
+        log.debug(f"checking enabled status for {integration_type}, config={config}")
+        log.debug(f"config.get('enabled', False)={config.get('enabled', False)}")
 
         if not config.get('enabled', False):
             with open('/tmp/soar_debug.log', 'a') as f:
                 f.write(f"[{datetime.now()}] Integration {integration_type} is not enabled, returning failure\n")
-            print(f"DEBUG: Integration {integration_type} is not enabled, returning failure")
+            log.debug(f"Integration {integration_type} is not enabled, returning failure")
             return {
                 "job_id": job_id,
                 "status": "Failed",
@@ -1837,7 +1839,7 @@ def create_case_artifact_folder(case_id, integration_type='sentinelone'):
         os.makedirs(artifact_path, exist_ok=True)
         return artifact_path
     except Exception as e:
-        print(f"Error creating artifact folder: {str(e)}")
+        log.error(f"Error creating artifact folder: {str(e)}")
         return None
 
 
@@ -1864,7 +1866,7 @@ def save_case_artifact(case_id, filename, data, integration_type='sentinelone'):
 
         return file_path
     except Exception as e:
-        print(f"Error saving artifact: {str(e)}")
+        log.error(f"Error saving artifact: {str(e)}")
         return None
 
 
@@ -1892,7 +1894,7 @@ def add_case_note(case_id, note_content, note_title="SOAR Job Execution"):
             )
             db.session.add(directory)
             db.session.commit()
-            print(f"Created SOAR Job Reports directory for case {case_id}")
+            log.info(f"Created SOAR Job Reports directory for case {case_id}")
 
         # Add the note using the core IRIS function
         note = add_note(
@@ -1906,7 +1908,7 @@ def add_case_note(case_id, note_content, note_title="SOAR Job Execution"):
 
         return note.note_id if note else None
     except Exception as e:
-        print(f"Error adding case note: {str(e)}")
+        log.error(f"Error adding case note: {str(e)}")
         traceback.print_exc()
         return False
 
@@ -1982,7 +1984,7 @@ def create_scheduled_soar_job(case_id, template_id, template_name, integration_t
         db.session.commit()
         return job
     except Exception as e:
-        print(f"Error creating scheduled SOAR job: {str(e)}")
+        log.error(f"Error creating scheduled SOAR job: {str(e)}")
         db.session.rollback()
         return None
 
@@ -2026,7 +2028,7 @@ def schedule_job_execution(job):
             return task.id
 
     except Exception as e:
-        print(f"Error scheduling job execution: {str(e)}")
+        log.error(f"Error scheduling job execution: {str(e)}")
         return None
 
 
@@ -2070,7 +2072,7 @@ def audit_log_soar_action(action_type, job_id=None, template_id=None, target=Non
 
     except Exception as e:
         # Fallback logging if audit logging fails
-        print(f"WARNING: Audit logging failed: {str(e)}")
+        log.warning(f"Audit logging failed: {str(e)}")
         logging.error(f"SOAR audit logging failure: {str(e)}")
 
 
@@ -2103,7 +2105,7 @@ def log_job_lifecycle_event(job, event_type, additional_data=None):
             details=details
         )
     except Exception as e:
-        print(f"WARNING: Job lifecycle logging failed: {str(e)}")
+        log.warning(f"Job lifecycle logging failed: {str(e)}")
 
 
 def log_template_management_event(action, template_id, template_name, user_id, details=None):
@@ -2123,7 +2125,7 @@ def log_template_management_event(action, template_id, template_name, user_id, d
             status="Completed"
         )
     except Exception as e:
-        print(f"WARNING: Template management logging failed: {str(e)}")
+        log.warning(f"Template management logging failed: {str(e)}")
 
 
 def log_approval_workflow_event(job, action, approver_id, comment=None):
@@ -2147,7 +2149,7 @@ def log_approval_workflow_event(job, action, approver_id, comment=None):
             status="Completed"
         )
     except Exception as e:
-        print(f"WARNING: Approval workflow logging failed: {str(e)}")
+        log.warning(f"Approval workflow logging failed: {str(e)}")
 
 
 def get_template_approval_requirement(template_id):
@@ -2225,7 +2227,7 @@ def create_soar_job(case_id, template_id, template_name, integration_type, targe
 
         return job
     except Exception as e:
-        print(f"Error creating SOAR job: {str(e)}")
+        log.error(f"Error creating SOAR job: {str(e)}")
         audit_log_soar_action(
             action_type="job_creation_failed",
             template_id=template_id,
@@ -2264,7 +2266,7 @@ def update_soar_job(job_id, status=None, result_data=None, error_message=None, c
         db.session.commit()
         return True
     except Exception as e:
-        print(f"Error updating SOAR job: {str(e)}")
+        log.error(f"Error updating SOAR job: {str(e)}")
         db.session.rollback()
         return False
 
@@ -2292,7 +2294,7 @@ def add_soar_job_step(job_id, step_name, step_order, status='Running', result_me
         db.session.commit()
         return step
     except Exception as e:
-        print(f"Error adding SOAR job step: {str(e)}")
+        log.error(f"Error adding SOAR job step: {str(e)}")
         db.session.rollback()
         return None
 
@@ -2320,7 +2322,7 @@ def update_soar_job_step(step_id, status=None, result_message=None, error_messag
         db.session.commit()
         return True
     except Exception as e:
-        print(f"Error updating SOAR job step: {str(e)}")
+        log.error(f"Error updating SOAR job step: {str(e)}")
         db.session.rollback()
         return False
 
@@ -2344,7 +2346,7 @@ def add_soar_job_artifact(job_id, artifact_name, artifact_type, file_path, file_
         db.session.commit()
         return artifact
     except Exception as e:
-        print(f"Error adding SOAR job artifact: {str(e)}")
+        log.error(f"Error adding SOAR job artifact: {str(e)}")
         db.session.rollback()
         return None
 
@@ -3001,11 +3003,11 @@ def get_crowdstrike_token(config):
             token_data = response.json()
             return token_data.get('access_token')
         else:
-            print(f"Token request failed: {response.status_code} - {response.text}")
+            log.error(f"Token request failed: {response.status_code} - {response.text}")
             return None
 
     except Exception as e:
-        print(f"Error getting CrowdStrike token: {str(e)}")
+        log.error(f"Error getting CrowdStrike token: {str(e)}")
         return None
 
 
