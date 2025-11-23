@@ -30,6 +30,7 @@ from app.blueprints.api.api_routes import api_blueprint
 from app.blueprints.case.case_routes import case_blueprint
 from app.blueprints.context.context import ctx_blueprint
 from app.blueprints.soar.soar_routes import soar_blueprint
+from app.blueprints.threat_hunting.threat_hunting_routes import threat_hunting_blueprint
 # Blueprints
 from app.blueprints.graphql.graphql_route import graphql_blueprint
 from app.blueprints.dashboard.dashboard_routes import dashboard_blueprint
@@ -109,6 +110,7 @@ app.register_blueprint(saved_filters_blueprint)
 app.register_blueprint(ctx_blueprint)
 app.register_blueprint(case_blueprint)
 app.register_blueprint(soar_blueprint)
+app.register_blueprint(threat_hunting_blueprint)
 
 # Debug logging for all requests to SOAR routes
 from datetime import datetime

@@ -219,6 +219,16 @@ def get_integrations_config():
                 'api_version': 'v2',
                 'vdom': 'root',
                 'quarantine_duration': 3600
+            },
+            'opensearch': {
+                'enabled': False,
+                'base_url': '',
+                'api_key': '',
+                'username': '',
+                'password': '',
+                'verify_ssl': True,
+                'timeout': 60,
+                'default_index': '*'
             }
         }
 
@@ -246,6 +256,16 @@ def get_integrations_config():
                 'api_token': '',
                 'verify_ssl': True,
                 'site_id': ''
+            },
+            'opensearch': {
+                'enabled': False,
+                'base_url': '',
+                'api_key': '',
+                'username': '',
+                'password': '',
+                'verify_ssl': True,
+                'timeout': 60,
+                'default_index': '*'
             }
         }
 

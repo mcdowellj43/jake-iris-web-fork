@@ -1,0 +1,428 @@
+{% extends "layouts/default.html" %}
+
+{% block title %}Threat Hunting{% endblock %}
+
+{% block content %}
+{% include "components/alert.html" %}
+
+<style>
+    /* Query status badge styling */
+    .query-severity {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    .query-severity.critical { background-color: #721c24; color: #ffffff; }
+    .query-severity.high { background-color: #f8d7da; color: #721c24; }
+    .query-severity.medium { background-color: #fff3cd; color: #856404; }
+    .query-severity.low { background-color: #d4edda; color: #155724; }
+
+    /* Execution status badges */
+    .exec-status {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-weight: bold;
+    }
+    .exec-status.completed { background-color: #d4edda; color: #155724; }
+    .exec-status.failed { background-color: #f8d7da; color: #721c24; }
+    .exec-status.running { background-color: #fff3cd; color: #856404; }
+
+    /* Category card hover effect */
+    .category-card {
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .category-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    /* Query item styling */
+    .query-item {
+        cursor: pointer;
+        padding: 12px;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        transition: background-color 0.2s;
+    }
+    .query-item:hover {
+        background-color: #f8f9fa;
+    }
+    .query-item.active {
+        background-color: #e7f3ff;
+        border-color: #007bff;
+    }
+
+    /* Results table styling */
+    .results-container {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    /* MITRE ATT&CK badge */
+    .mitre-badge {
+        background-color: #17a2b8;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.75em;
+        margin-right: 4px;
+    }
+
+    /* Stats card numbers */
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #1572E8;
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(0,0,0,.1);
+        border-radius: 50%;
+        border-top-color: #007bff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Timeline for results */
+    .results-timeline {
+        border-left: 3px solid #e9ecef;
+        padding-left: 20px;
+        margin-left: 10px;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-bottom: 20px;
+    }
+
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: -26px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #007bff;
+    }
+</style>
+
+<!-- Page Header -->
+<div class="panel-header bg-info-gradient">
+    <div class="page-inner py-5">
+        <div class="d-flex align-items-left align-items-md-center flex-column flex-md-row mt--3">
+            <div>
+                <h2 class="text-white pb-2 fw-bold">
+                    <i class="fas fa-binoculars mr-2"></i>Threat Hunting Dashboard
+                </h2>
+                <h5 class="text-white op-7 mb-2">Proactive threat detection using OpenSearch analytics</h5>
+            </div>
+            <div class="ml-md-auto py-2 py-md-0">
+                <button class="btn btn-white btn-border btn-round mr-2" onclick="testOpenSearchConnection()">
+                    <i class="fas fa-plug mr-1"></i> Test Connection
+                </button>
+                <button class="btn btn-white btn-round" onclick="loadStats()">
+                    <i class="fas fa-sync mr-1"></i> Refresh Stats
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="page-inner mt--5">
+    <div class="row row-card-no-pd">
+        <!-- Total Executions -->
+        <div class="col-sm-6 col-md-3">
+            <div class="card card-stats card-round">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-5">
+                            <div class="icon-big text-center">
+                                <i class="flaticon-graph text-info"></i>
+                            </div>
+                        </div>
+                        <div class="col-7 col-stats">
+                            <div class="numbers">
+                                <p class="card-category">Total Executions</p>
+                                <h4 class="card-title" id="stat-total-executions">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Executions (24h) -->
+        <div class="col-sm-6 col-md-3">
+            <div class="card card-stats card-round">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-5">
+                            <div class="icon-big text-center">
+                                <i class="flaticon-clock text-success"></i>
+                            </div>
+                        </div>
+                        <div class="col-7 col-stats">
+                            <div class="numbers">
+                                <p class="card-category">Last 24 Hours</p>
+                                <h4 class="card-title" id="stat-executions-24h">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Hits -->
+        <div class="col-sm-6 col-md-3">
+            <div class="card card-stats card-round">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-5">
+                            <div class="icon-big text-center">
+                                <i class="flaticon-target text-danger"></i>
+                            </div>
+                        </div>
+                        <div class="col-7 col-stats">
+                            <div class="numbers">
+                                <p class="card-category">Total Hits Found</p>
+                                <h4 class="card-title" id="stat-total-hits">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Queries -->
+        <div class="col-sm-6 col-md-3">
+            <div class="card card-stats card-round">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-5">
+                            <div class="icon-big text-center">
+                                <i class="flaticon-layers text-warning"></i>
+                            </div>
+                        </div>
+                        <div class="col-7 col-stats">
+                            <div class="numbers">
+                                <p class="card-category">Detection Queries</p>
+                                <h4 class="card-title">{{ total_queries }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row mt-4">
+        <!-- Left Column: Query Library -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-book mr-2"></i>Query Library
+                    </h4>
+                    <span class="badge badge-info" id="query-count">{{ total_queries }} queries</span>
+                </div>
+                <div class="card-body">
+                    <!-- Category Filter -->
+                    <div class="form-group">
+                        <label>Filter by Category</label>
+                        <select class="form-control" id="category-filter" onchange="filterByCategory()">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category }}">{{ category }} ({{ query_counts[category] }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Severity Filter -->
+                    <div class="form-group">
+                        <label>Filter by Severity</label>
+                        <select class="form-control" id="severity-filter" onchange="filterBySeverity()">
+                            <option value="">All Severities</option>
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+
+                    <!-- Query List -->
+                    <div id="query-list" style="max-height: 600px; overflow-y: auto;">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Column: Query Execution -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-play-circle mr-2"></i>Execute Query
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div id="query-details-container">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-hand-pointer fa-3x mb-3"></i>
+                            <p>Select a query from the library to begin</p>
+                        </div>
+                    </div>
+
+                    <!-- Query execution form (hidden initially) -->
+                    <div id="query-execution-form" style="display: none;">
+                        <div class="form-group">
+                            <label>Query Name</label>
+                            <h5 id="selected-query-name"></h5>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Description</label>
+                            <p id="selected-query-description" class="text-muted"></p>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Severity</label>
+                            <div>
+                                <span id="selected-query-severity" class="query-severity"></span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>MITRE ATT&CK Techniques</label>
+                            <div id="selected-query-mitre"></div>
+                        </div>
+
+                        <hr>
+
+                        <div class="form-group">
+                            <label for="time-range">Time Range</label>
+                            <select class="form-control" id="time-range">
+                                <option value="1h">Last 1 Hour</option>
+                                <option value="4h">Last 4 Hours</option>
+                                <option value="12h">Last 12 Hours</option>
+                                <option value="24h" selected>Last 24 Hours</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="index-pattern">Index Pattern (optional)</label>
+                            <input type="text" class="form-control" id="index-pattern" placeholder="e.g., winlogbeat-*, sysmon-*">
+                            <small class="form-text text-muted">Leave empty to search all indices</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="case-association">Associate with Case (optional)</label>
+                            <input type="number" class="form-control" id="case-association" placeholder="Case ID">
+                        </div>
+
+                        <button class="btn btn-primary btn-block" onclick="executeQuery()">
+                            <i class="fas fa-search mr-2"></i>Execute Hunt
+                        </button>
+
+                        <div id="execution-status" class="mt-3" style="display: none;">
+                            <div class="alert" role="alert">
+                                <div id="execution-message"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Execution History -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-history mr-2"></i>Recent Executions
+                    </h4>
+                </div>
+                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                    <div id="execution-history">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Results -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-chart-bar mr-2"></i>Results
+                    </h4>
+                    <div id="results-actions" style="display: none;">
+                        <button class="btn btn-sm btn-primary" onclick="addResultsToCase()">
+                            <i class="fas fa-plus-circle mr-1"></i> Add to Case
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="results-container">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-chart-line fa-3x mb-3"></i>
+                            <p>Execute a query to see results</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add to Case Modal -->
+<div class="modal fade" id="addToCaseModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Results to Case</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="modal-case-id">Case ID *</label>
+                    <input type="number" class="form-control" id="modal-case-id" required>
+                </div>
+                <p class="text-muted">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Results will be added as a case note with full details including query configuration, hits found, and sample events.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmAddToCase()">
+                    <i class="fas fa-check mr-1"></i> Add to Case
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/assets/js/iris/threat_hunting.js"></script>
+{% endblock %}
